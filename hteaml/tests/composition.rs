@@ -6,12 +6,11 @@ fn composition() {
     let page = hteaml! {
         {head()}
         {body(message)}
-        {footer()}
     };
     assert_eq!(
         page.render(),
         Ok(format!(
-            "<head><title>composition</title></head><body>{message}</body><footer>nothing to see here</footer>"
+            "<head><title>composition</title></head><body>{message}<footer>nothing to see here</footer></body>"
         ))
     )
 }
@@ -24,14 +23,13 @@ fn composition_advanced() {
             hteaml! {
                 {head()}
                 {body(message)}
-                {footer()}
             }
         })
     };
     assert_eq!(
         page.render(),
         Ok(format!(
-            "<html><head><title>composition</title></head><body>{message}</body><footer>nothing to see here</footer></html>"
+            "<html><head><title>composition</title></head><body>{message}<footer>nothing to see here</footer></body></html>"
         ))
     )
 }
@@ -44,7 +42,7 @@ fn head() -> Html<'static> {
 
 fn body(text: &str) -> Html {
     hteaml! {
-        (body = {text})
+        (body = {text} {footer()})
     }
 }
 
