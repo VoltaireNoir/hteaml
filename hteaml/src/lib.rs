@@ -1,15 +1,23 @@
+#![doc = include_str!("../../README.md")]
 use std::borrow::Cow;
 use std::fmt::{self, Write};
 
 pub use hteaml_macro::hteaml;
 
+/// The trait through which the provided types (i.e. [`Html`], [`Tag`]) render themselves to HTML
+///
+/// This trait is implemented on every type that represents an HTML element, which means that each type can also be rendered to a String separately.
+///
+/// If you wish to make your custom type be directly usable within the [`hteaml`] macro or other types, see [`IntoStr`]
 pub trait Render {
+    /// Render self to HTML
     fn render(&self) -> Result<String, fmt::Error> {
         let mut buf = String::new();
         self.render_to_buf(&mut buf)?;
         Ok(buf)
     }
 
+    /// Render self to HTML by writing to the given `String` buffer
     fn render_to_buf(&self, buf: &mut String) -> fmt::Result;
 }
 
@@ -19,33 +27,73 @@ impl Render for Str<'_> {
     }
 }
 
-pub trait ToStr<'a> {
-    fn to_str(self) -> Str<'a>;
+/// The primary trait used in the generic parameters in the types exposed by this crate
+///
+/// It is used for accepting wide range of String types as well as types that implement `AsRef<str>`
+/// This trait is very similar to using the trait bound `T: Into<Cow<str>>` but with an extra blanket implementation.
+///
+/// Users of this library can implement this trait on their custom types to make them work seamlessly with the [`hteaml`] macro.
+/// ## Implementing IntoStr
+/// ```
+/// use hteaml::{IntoStr, Str};
+///
+/// struct CustomOwned(String);
+///
+/// impl<'a> IntoStr<'a> for CustomOwned {
+///    fn into_str(self) -> Str<'a> {
+///        Str::Owned(self.0)
+///    }
+/// }
+///
+/// struct CustomBorrow<'a>(&'a str);
+///
+/// impl<'a> IntoStr<'a> for CustomBorrow<'a> {
+///    fn into_str(self) -> Str<'a> {
+///        Str::Borrowed(self.0)
+///    }
+/// }
+/// ```
+pub trait IntoStr<'a> {
+    /// Convert self to `Str` which is an alias for `Cow<str>`
+    fn into_str(self) -> Str<'a>;
 }
 
-impl<'a> ToStr<'a> for String {
-    fn to_str(self) -> Str<'a> {
+impl<'a> IntoStr<'a> for String {
+    fn into_str(self) -> Str<'a> {
         Cow::Owned(self)
     }
 }
 
-impl<'a> ToStr<'a> for &'a str {
-    fn to_str(self) -> Str<'a> {
+impl<'a> IntoStr<'a> for &'a str {
+    fn into_str(self) -> Str<'a> {
         Cow::Borrowed(self)
     }
 }
 
-impl<'a, T: AsRef<str>> ToStr<'a> for &'a T {
-    fn to_str(self) -> Cow<'a, str> {
+impl<'a, T: AsRef<str>> IntoStr<'a> for &'a T {
+    fn into_str(self) -> Cow<'a, str> {
         Cow::Borrowed(self.as_ref())
     }
 }
 
+/// Type alias for `Cow<str>`
+///
+/// This type is widely used in the types exposed by the crate to accept both owned
+/// and borrowed string types.
+///
+/// If you wish to make your custom type be directly usable within the [`hteaml`] macro or other types, see [`IntoStr`]
 pub type Str<'a> = Cow<'a, str>;
 
+/// Top level representation of HTML markup which can contain a single tag or a comment or a sequence of both
+///
+/// The [`hteaml`] macro returns this type on every invocation
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Html<'a> {
+    /// An HTML tag
     Tag(Tag<'a>),
+    /// An HTML comment
     Comment(Comment<'a>),
+    /// A sequence containing tags and comments or more nested sequences
     Html(Vec<Html<'a>>),
 }
 
@@ -77,11 +125,22 @@ impl Render for Html<'_> {
     }
 }
 
+/// Type that represents an HTML comment
+///
+/// Note: Comments are still not supported in the [`hteaml`] macro
+///
+/// ## Example
+/// ```
+/// use hteaml::Render;
+/// assert_eq!(hteaml::Comment::new("comment").render(), Ok("<!-- comment -->".into()))
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Comment<'a>(Str<'a>);
 
 impl<'a> Comment<'a> {
-    pub fn new<T: ToStr<'a>>(comment: T) -> Self {
-        Self(comment.to_str())
+    /// Construct a new comment
+    pub fn new<T: IntoStr<'a>>(comment: T) -> Self {
+        Self(comment.into_str())
     }
 }
 
@@ -91,6 +150,23 @@ impl Render for Comment<'_> {
     }
 }
 
+/// Represents an HTML tag
+///
+/// This is the building block for HTML. A tag can be created either directly through the provided builder
+/// pattern or using the [`hteaml`] macro
+///
+/// > Note: calling `.self_closing()` on the tag type will ignore any content (if it was provided).
+///
+/// ## Example
+/// ```
+/// use hteaml::{Html, Tag, hteaml};   
+/// let tag = Tag::new("div").attr("key","val").content("content");
+/// assert_eq!(Html::Tag(tag), hteaml!((div key:val = "content")));
+///
+/// let tag = Tag::new("br").self_closing();
+/// assert_eq!(Html::Tag(tag), hteaml!((br)));
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Tag<'a> {
     name: Str<'a>,
     attributes: Vec<Attr<'a>>,
@@ -116,39 +192,57 @@ impl Render for Tag<'_> {
 }
 
 impl<'a> Tag<'a> {
-    pub fn new<T: ToStr<'a>>(name: T) -> Self {
+    /// Create a new Tag type
+    ///
+    /// It is preferable to use the [`hteaml`] macro to write HTML tags.
+    /// However, the user is free to either use the macro of the [`Tag`] and [`Html`] types directly.
+    pub fn new<T: IntoStr<'a>>(name: T) -> Self {
         Self {
-            name: name.to_str(),
+            name: name.into_str(),
             attributes: vec![],
             content: vec![],
             self_closing: false,
         }
     }
 
+    /// Append a tag attribute to the tag
+    ///
+    /// The generic parameters accept any type that implements the trait [`IntoStr`].
+    /// The [`IntoStr`] trait is implemented for `&str`, `String and any type that implements `AsRef<str>`
     pub fn attr<A, B>(mut self, key: A, val: B) -> Self
     where
-        A: ToStr<'a>,
-        B: ToStr<'a>,
+        A: IntoStr<'a>,
+        B: IntoStr<'a>,
     {
         self.attributes.push(Attr {
-            key: key.to_str(),
-            val: val.to_str(),
+            key: key.into_str(),
+            val: val.into_str(),
         });
         self
     }
 
+    /// Append content to the tag
+    ///
+    /// The `content` parameter accepts any type that implements `Into<Content>`.
+    /// All types that implement [`IntoStr`] also implement [`Into<Content>`], which means all string types and others that implement `AsRef<str>`.
+    /// Other types that implement `Into<Content>` are the types in the [`Html`] enum variants, and the enum itself.
     pub fn content<C: Into<Content<'a>>>(mut self, content: C) -> Self {
         self.content.push(content.into());
         self
     }
 
+    /// Make the tag self-enclosing (i.e. single tag without an additional closing tag)
+    ///
+    /// Note: self closing tags do not contain any content, therefore any content appended to the tag will be ignored.
     pub fn self_closing(mut self) -> Self {
         self.self_closing = true;
         self
     }
 }
 
-pub struct Attr<'a> {
+/// Represents an HTML tag attribute
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct Attr<'a> {
     key: Str<'a>,
     val: Str<'a>,
 }
@@ -162,8 +256,14 @@ impl Render for Attr<'_> {
     }
 }
 
+/// Represents the content of an HTML tag
+///
+/// This is a superset of the [`Html`] enum with the addition of the [`Str`] type (which is not a member of the top level Html enum).
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Content<'a> {
+    /// Html content
     Html(Html<'a>),
+    /// Plain string
     Str(Str<'a>),
 }
 

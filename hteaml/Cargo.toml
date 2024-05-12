@@ -5,3 +5,6 @@ edition = "2021"
 
 [dependencies]
 hteaml-macro = { path = "../hteaml-macro" }
+
+[lints]
+workspace = true
