@@ -12,13 +12,15 @@ Good question... Well, uh... for better or worse, the syntax will remind you of 
 
 *drumroll* ...
 ```rust
+use hteaml::hteaml;
+
 hteaml! {
   ("!DOCTYPE" html)
   (html
     (head (title = "Hello World"))
     (body = "Yep, lots of parenthesis")
   )
-}
+};
 ```
 
 ### Project Status

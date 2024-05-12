@@ -1,3 +1,4 @@
+#![doc = include_str!("../../README.md")]
 use proc_macro::TokenStream;
 use quote::{quote, ToTokens};
 use syn::{
@@ -7,6 +8,25 @@ use syn::{
     Token,
 };
 
+/// The procedural macro for writing HTML using the alternative Lisp-like syntax
+///
+/// ## Syntax
+/// The following are the basic syntax concepts that the user must grasp to use the macro correctly
+/// ### Tags
+/// `(tag key:val = "content")` is the equivalent of `<tag key="val">content</tag>`. If the equals sign along with the content part is omitted
+/// the tag  is assumed to be a self-closing tag: `(br)` would render to `<br>`. Attributes can be single keys without values: `(tag attr = "content")` -> `<tag attr>content</tag>`.
+/// Attributes can of course be omitted completely as seen in the self-closing tag example.
+///
+/// **Nesting:** Tags can be nested `(tag attr:val (tag2 attr:val = "content"))`. The `=` equals sign is optional while nesting tags. Multiple tags can be nested
+/// within a single tag: `(tag (tag2) (tag3))` is the same as `<tag><tag2><tag3></tag>`.
+///
+/// ### Rust Expressions
+/// The macro allows you to use the usual Rust code in all places using blocks: `{...}`.
+/// #### Expression rules
+/// - Expressions used in the top-level macro invocation must evaluate to a type that implements `Into<Html>`
+/// - Expressions used in within a tag must evaluate to a type that implements `Into<Str>`
+/// - Expressions used in the tag's content must evaluate to a type that implements `Into<Str>` or `Into<Html>`
+/// - A sequence of expressions can be writen as `{expr} {expr2}` as long as they follow the above rules
 #[proc_macro]
 pub fn hteaml(stream: TokenStream) -> TokenStream {
     let html = parse_macro_input!(stream as Html);
