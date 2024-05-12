@@ -4,3 +4,16 @@ members = [
   "hteaml",
   "hteaml-macro"
 ]
+
+[workspace.lints.rust]
+unsafe_code = "warn"
+missing_docs = "warn"
+
+[workspace.lints.clippy]
+unwrap_used = "warn"
+expect_used = "warn"
+panic = "warn"
+todo = "warn"
+dbg_macro = "warn"
+exit = "warn"
+unused_self = "warn"

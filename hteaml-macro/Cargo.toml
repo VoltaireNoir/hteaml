@@ -13,3 +13,6 @@ proc-macro = true
 
 [dev-dependencies]
 hteaml = { path = "../hteaml" }
+
+[lints]
+workspace = true
