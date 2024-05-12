@@ -29,7 +29,7 @@ hteaml! {
 - Lacks any kind of HTML escaping
 
 ### Pending Features/Tasks
-- [ ] Docs
+- [x] Docs
 - [ ] Guide for using the `hteaml` macro
 - [ ] HTML escaping
 - [ ] Better error messages
